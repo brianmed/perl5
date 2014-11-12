@@ -12,11 +12,10 @@ use constant {
     PERL_5_21_7 => $^V && $^V ge v5.21.7,
 };
 
-BEGIN {
-    if ( ord("A") == 193 ) {
-        require Carp;
-        Carp::croak("encoding: pragma does not support EBCDIC platforms");
-    }
+our $HAS_PERLIO = 0;
+eval { require PerlIO::encoding };
+unless ($@) {
+    $HAS_PERLIO = ( PerlIO::encoding->VERSION >= 0.02 );
 }
 
 sub _exception {
@@ -115,6 +114,11 @@ sub _get_locale_encoding {
 }
 
 sub import {
+    if ( ord("A") == 193 ) {
+        require Carp;
+        Carp::croak("encoding: pragma does not support EBCDIC platforms");
+    }
+
     if ($] >= 5.017) {
 	warnings::warnif("deprecated",
 			 "Use of the encoding pragma is deprecated")

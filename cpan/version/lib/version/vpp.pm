@@ -122,7 +122,7 @@ use strict;
 
 use Config;
 use vars qw($VERSION $CLASS @ISA $LAX $STRICT);
-$VERSION = 0.9909;
+$VERSION = 0.9910;
 $CLASS = 'version::vpp';
 
 require version::regex;
@@ -674,7 +674,10 @@ sub new {
 
     $value = _un_vstring($value);
 
-    if ($Config{d_setlocale}) {
+    if (   $Config{d_setlocale}
+        && $Config{d_locconv}
+        && $Config{ccflags} !~ /\bD?NO_LOCALE\b/)
+    {
 	use POSIX qw/locale_h/;
 	use if $Config{d_setlocale}, 'locale';
 	my $currlocale = setlocale(LC_ALL);

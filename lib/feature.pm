@@ -424,7 +424,7 @@ bundle is automatically loaded instead.
 =cut
 
 sub import {
-    my $class = shift;
+    shift;
 
     if (!@_) {
         croak("No features specified");
@@ -434,7 +434,7 @@ sub import {
 }
 
 sub unimport {
-    my $class = shift;
+    shift;
 
     # A bare C<no feature> should reset to the default bundle
     if (!@_) {

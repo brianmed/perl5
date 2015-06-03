@@ -3577,8 +3577,7 @@ PP(pp_chdir)
         else if (!(gv = MAYBE_DEREF_GV(sv)))
 		tmps = SvPV_nomg_const_nolen(sv);
     }
-
-    if( !gv && (!tmps || !*tmps) ) {
+    else {
 	HV * const table = GvHVn(PL_envgv);
 	SV **svp;
 
@@ -3589,8 +3588,6 @@ PP(pp_chdir)
 #endif
            )
         {
-            if( MAXARG == 1 )
-                deprecate("chdir('') or chdir(undef) as chdir()");
             tmps = SvPV_nolen_const(*svp);
         }
         else {

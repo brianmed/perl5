@@ -383,10 +383,19 @@ used, even for negative shiftees.  Either way, the implementation isn't going to
 larger than the size of the integer type Perl was built with (32 bits
 or 64 bits).
 
-The result of overflowing the range of the integers is undefined
-because it is undefined also in C.  In other words, using 32-bit
-integers, S<C<< 1 << 32 >>> is undefined.  Shifting by a negative number
-of bits is also undefined.
+Shifting by negative number of bits means the reverse shift: left
+shift becomes right shift, right shift becomes left shift.  This is
+unlike in C, where negative shift is undefined.
+
+Shifting by more bits than the size of the integers means most of the
+time zero (all bits fall off), except that under S<C<use integer>>
+right overshifting a negative shiftee results in -1.  This is unlike
+in C, where shifting by too many bits is undefined.  A common C
+behavior is "shift by modulo wordbits", so that for example
+
+    1 >> 64 == 1 >> (64 % 64) == 1 >> 0 == 1  # Common C behavior.
+
+but that is completely accidental and shouldn't be relied upon.
 
 If you get tired of being subject to your platform's native integers,
 the S<C<use bigint>> pragma neatly sidesteps the issue altogether:

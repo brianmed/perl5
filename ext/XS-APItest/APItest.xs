@@ -14,6 +14,48 @@ typedef PTR_TBL_t *XS__APItest__PtrTable;
 #define croak_fail() croak("fail at " __FILE__ " line %d", __LINE__)
 #define croak_fail_ne(h, w) croak("fail %p!=%p at " __FILE__ " line %d", (h), (w), __LINE__)
 
+void
+cat_utf8a2n(SV* sv, const char * const ascii_utf8, STRLEN len)
+{
+    dTHX;
+    char * p = (char *) ascii_utf8;
+    const char * const e = p + len;
+
+    while (p < e) {
+        UV code_point;
+        U8 native_utf8[UTF8_MAXBYTES + 1];
+        U8 * char_end;
+        U8 start = (U8) *p;
+
+        /* Start bytes are the same in both UTF-8 and I8, therefore we can
+         * treat this ASCII UTF-8 byte as an I8 byte.  But UTF8_SKIP's input is
+         * a NATIVE_UTF8 byte, so transform to that */
+        STRLEN char_bytes_len = PL_utf8skip[I8_TO_NATIVE_UTF8(start)];
+
+        if (start < 0xc2) {
+            croak("fail: Expecting start byte, instead got 0x%X at %s line %d",
+                                                  (U8) *p, __FILE__, __LINE__);
+        }
+        code_point = (start & (((char_bytes_len) >= 7)
+                                ? 0x00
+                                : (0x1F >> ((char_bytes_len)-2))));
+        p++;
+        while (p < e && ((( (U8) *p) & 0xC0) == 0x80)) {
+
+            code_point = (code_point << 6) | (( (U8) *p) & 0x3F);
+            p++;
+            char_bytes_len++;
+        }
+
+        char_end = uvoffuni_to_utf8_flags(native_utf8,
+                                          UNI_TO_NATIVE(code_point),
+                                          0 /* No checks */
+                                         );
+	sv_catpvn(sv, (char *) native_utf8, char_end - native_utf8);
+        sv_dump(sv);
+    }
+}
+
 /* for my_cxt tests */
 
 #define MY_CXT_KEY "XS::APItest::_guts" XS_VERSION
@@ -2907,6 +2949,11 @@ void
 test_cophh()
     PREINIT:
 	COPHH *a, *b;
+#ifdef EBCDIC
+        SV* key_sv;
+        char * key_name;
+        STRLEN key_len;
+#endif
     CODE:
 #define check_ph(EXPR) \
     	    do { if((EXPR) != &PL_sv_placeholder) croak("fail"); } while(0)
@@ -2970,24 +3017,77 @@ test_cophh()
 	check_iv(cophh_fetch_pvs(a, "foo_3", 0), 333);
 	check_iv(cophh_fetch_pvs(a, "foo_4", 0), 444);
 	check_ph(cophh_fetch_pvs(a, "foo_5", 0));
-	a = cophh_store_pvs(a, "foo_1", msviv(11111), COPHH_KEY_UTF8);
+        a = cophh_store_pvs(a, "foo_1", msviv(11111), COPHH_KEY_UTF8);
 	a = cophh_store_pvs(a, "foo_\xaa", msviv(123), 0);
+#ifndef EBCDIC
 	a = cophh_store_pvs(a, "foo_\xc2\xbb", msviv(456), COPHH_KEY_UTF8);
+#else
+        key_sv = sv_2mortal(newSVpvs("foo_"));
+        cat_utf8a2n(key_sv, STR_WITH_LEN("\xc2\xbb"));
+	key_name = SvPV(key_sv, key_len);
+	a = cophh_store_pvn(a, key_name, key_len, 0, msviv(456), COPHH_KEY_UTF8);
+#endif
+#ifndef EBCDIC
 	a = cophh_store_pvs(a, "foo_\xc3\x8c", msviv(789), COPHH_KEY_UTF8);
+#else
+        sv_setpvs(key_sv, "foo_");
+        cat_utf8a2n(key_sv, STR_WITH_LEN("\xc3\x8c"));
+	key_name = SvPV(key_sv, key_len);
+	a = cophh_store_pvn(a, key_name, key_len, 0, msviv(789), COPHH_KEY_UTF8);
+#endif
+#ifndef EBCDIC
 	a = cophh_store_pvs(a, "foo_\xd9\xa6", msviv(666), COPHH_KEY_UTF8);
+#else
+        sv_setpvs(key_sv, "foo_");
+        cat_utf8a2n(key_sv, STR_WITH_LEN("\xd9\xa6"));
+	key_name = SvPV(key_sv, key_len);
+	a = cophh_store_pvn(a, key_name, key_len, 0, msviv(666), COPHH_KEY_UTF8);
+#endif
 	check_iv(cophh_fetch_pvs(a, "foo_1", 0), 11111);
 	check_iv(cophh_fetch_pvs(a, "foo_1", COPHH_KEY_UTF8), 11111);
 	check_iv(cophh_fetch_pvs(a, "foo_\xaa", 0), 123);
+#ifndef EBCDIC
 	check_iv(cophh_fetch_pvs(a, "foo_\xc2\xaa", COPHH_KEY_UTF8), 123);
 	check_ph(cophh_fetch_pvs(a, "foo_\xc2\xaa", 0));
+#else
+        sv_setpvs(key_sv, "foo_");
+        cat_utf8a2n(key_sv, STR_WITH_LEN("\xc2\xaa"));
+	key_name = SvPV(key_sv, key_len);
+	check_iv(cophh_fetch_pvn(a, key_name, key_len, 0, COPHH_KEY_UTF8), 123);
+	check_ph(cophh_fetch_pvn(a, key_name, key_len, 0, 0));
+#endif
 	check_iv(cophh_fetch_pvs(a, "foo_\xbb", 0), 456);
+#ifndef EBCDIC
 	check_iv(cophh_fetch_pvs(a, "foo_\xc2\xbb", COPHH_KEY_UTF8), 456);
 	check_ph(cophh_fetch_pvs(a, "foo_\xc2\xbb", 0));
+#else
+        sv_setpvs(key_sv, "foo_");
+        cat_utf8a2n(key_sv, STR_WITH_LEN("\xc2\xbb"));
+	key_name = SvPV(key_sv, key_len);
+	check_iv(cophh_fetch_pvn(a, key_name, key_len, 0, COPHH_KEY_UTF8), 456);
+	check_ph(cophh_fetch_pvn(a, key_name, key_len, 0, 0));
+#endif
 	check_iv(cophh_fetch_pvs(a, "foo_\xcc", 0), 789);
+#ifndef EBCDIC
 	check_iv(cophh_fetch_pvs(a, "foo_\xc3\x8c", COPHH_KEY_UTF8), 789);
 	check_ph(cophh_fetch_pvs(a, "foo_\xc2\x8c", 0));
+#else
+        sv_setpvs(key_sv, "foo_");
+        cat_utf8a2n(key_sv, STR_WITH_LEN("\xc3\x8c"));
+	key_name = SvPV(key_sv, key_len);
+	check_iv(cophh_fetch_pvn(a, key_name, key_len, 0, COPHH_KEY_UTF8), 789);
+	check_ph(cophh_fetch_pvn(a, key_name, key_len, 0, 0));
+#endif
+#ifndef EBCDIC
 	check_iv(cophh_fetch_pvs(a, "foo_\xd9\xa6", COPHH_KEY_UTF8), 666);
 	check_ph(cophh_fetch_pvs(a, "foo_\xd9\xa6", 0));
+#else
+        sv_setpvs(key_sv, "foo_");
+        cat_utf8a2n(key_sv, STR_WITH_LEN("\xd9\xa6"));
+	key_name = SvPV(key_sv, key_len);
+	check_iv(cophh_fetch_pvn(a, key_name, key_len, 0, COPHH_KEY_UTF8), 666);
+	check_ph(cophh_fetch_pvn(a, key_name, key_len, 0, 0));
+#endif
 	ENTER;
 	SAVEFREECOPHH(a);
 	LEAVE;
@@ -3022,15 +3122,41 @@ HV *
 example_cophh_2hv()
     PREINIT:
 	COPHH *a;
+#ifdef EBCDIC
+        SV* key_sv;
+        char * key_name;
+        STRLEN key_len;
+#endif
     CODE:
 #define msviv(VALUE) sv_2mortal(newSViv(VALUE))
 	a = cophh_new_empty();
 	a = cophh_store_pvs(a, "foo_0", msviv(999), 0);
 	a = cophh_store_pvs(a, "foo_1", msviv(111), 0);
 	a = cophh_store_pvs(a, "foo_\xaa", msviv(123), 0);
+#ifndef EBCDIC
 	a = cophh_store_pvs(a, "foo_\xc2\xbb", msviv(456), COPHH_KEY_UTF8);
+#else
+        key_sv = sv_2mortal(newSVpvs("foo_"));
+        cat_utf8a2n(key_sv, STR_WITH_LEN("\xc2\xbb"));
+	key_name = SvPV(key_sv, key_len);
+	a = cophh_store_pvn(a, key_name, key_len, 0, msviv(456), COPHH_KEY_UTF8);
+#endif
+#ifndef EBCDIC
 	a = cophh_store_pvs(a, "foo_\xc3\x8c", msviv(789), COPHH_KEY_UTF8);
+#else
+        sv_setpvs(key_sv, "foo_");
+        cat_utf8a2n(key_sv, STR_WITH_LEN("\xc3\x8c"));
+	key_name = SvPV(key_sv, key_len);
+	a = cophh_store_pvn(a, key_name, key_len, 0, msviv(789), COPHH_KEY_UTF8);
+#endif
+#ifndef EBCDIC
 	a = cophh_store_pvs(a, "foo_\xd9\xa6", msviv(666), COPHH_KEY_UTF8);
+#else
+        sv_setpvs(key_sv, "foo_");
+        cat_utf8a2n(key_sv, STR_WITH_LEN("\xd9\xa6"));
+	key_name = SvPV(key_sv, key_len);
+	a = cophh_store_pvn(a, key_name, key_len, 0, msviv(666), COPHH_KEY_UTF8);
+#endif
 	a = cophh_delete_pvs(a, "foo_0", 0);
 	a = cophh_delete_pvs(a, "foo_2", 0);
 	RETVAL = cophh_2hv(a, 0);

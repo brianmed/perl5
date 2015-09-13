@@ -938,19 +938,31 @@ is("@{[unpack('U*', pack('U*', 100, 200))]}", "100 200");
 
 
 SKIP: {
-    skip "Two of these still fail on EBCDIC; investigate in v5.23", 3 if $::IS_EBCDIC;
+    #skip "Two of these still fail on EBCDIC; investigate in v5.23", 3 if $::IS_EBCDIC;
 
     # does pack U0C create Unicode?
+    # XXX comments
     my $cp202 = chr(202);
     utf8::upgrade $cp202;
     my @bytes202;
     {   # This is portable across character sets
         use bytes;
         @bytes202 = map { ord } split "", $cp202;
+        print STDERR  "\n", __LINE__, ": ", join('.', @bytes202), "\n";
+        # 953: 128.84
     }
+    # XXX broken
+    # Malformed UTF-8 character (unexpected continuation byte 0x64, with no preceding start byte) in unpack at ./test.pl line 298.
+    # Failed test 4174 - at op/pack.t line 955
+    #      got "\000\x{ca}"
+    # expected "\x{64}\x{ca}"
     is("@{[pack('U0C*', 100, @bytes202)]}", v100.v202);
 
     # does pack C0U create characters?
+    # XXX broken
+    # Failed test 4175 - at op/pack.t line 958
+    #      got "d\x{8a}\x{51}"
+    # expected "\x{64}\x{80}\x{54}"
     is("@{[pack('C0U*', 100, 202)]}", pack("C*", 100, @bytes202));
 
     # does unpack U0U on byte data warn?
@@ -1550,7 +1562,17 @@ SKIP:
     # (note the length is actually 0 in this test)
     is(join(',', unpack("aC/UU",   "b\0$U_1FFC_utf8")), 'b,8188');
     is(join(',', unpack("aC/CU",   "b\0$U_1FFC_utf8")), 'b,8188');
-    skip "These two still fail on EBCDIC; investigate in v5.23", 2 if $::IS_EBCDIC;
+    #skip "These two still fail on EBCDIC; investigate in v5.23", 2 if $::IS_EBCDIC;
+        # What is happening here is that the a matches the 'b', the U0
+        # causes the string to be utf8-upgraded.  The bytes in the U+1FFC are
+        # upgraded as if they were each code points.  Comments in the source
+        # indicate that it would be better to avoid doing this upgrade for
+        # speed (as the U0 might not be reached in scalar context).  The C
+        # matches the NUL, which counts as a count because of the /, so the
+        # next U is skipped (I think) then the final U matches the first
+        # character of the 1FFC, which is the byte \341 = 225.  On EBCDIC this
+        # should be from native to Unicode, and so should be a decimal 69.
+        # What we are getting is 215 which is a P.  I don't understand how.
     is(join(',', unpack("aU0C/UU", "b\0$U_1FFC_utf8")), "b,$first_byte");
     is(join(',', unpack("aU0C/CU", "b\0$U_1FFC_utf8")), "b,$first_byte");
 }
@@ -1678,6 +1700,7 @@ SKIP:
     utf8::upgrade($up);
     is(pack("u", $down), pack("u", $up), "u pack is neutral");
     is(unpack("u", pack("u", $down)), $down, "u unpack to downgraded works");
+    # I no longer know why I wrote this: THIS NOT WORKING IS PROBABLY THE RESULT OF ENCODE
     is(unpack("U0C0u", pack("u", $down)), $up, "u unpack to upgraded works");
 
     # p/P format
@@ -1992,6 +2015,7 @@ SKIP:
 {
     #50256
     # This test is for the bit pattern "\x61\x62", which is ASCII "ab"
+    # XXX add comment
     my ($v) = split //, unpack ('(B)*', native_to_uni('ab'));
     is($v, 0); # Doesn't SEGV :-)
 }

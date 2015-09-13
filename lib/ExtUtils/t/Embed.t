@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+# XXX Haven't looked.
 
 BEGIN {
     if( $ENV{PERL_CORE} ) {

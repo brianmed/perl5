@@ -108,6 +108,7 @@ SKIP: {
     my @files = ();
     eval { @files = DynaLoader::dl_findfile("c") };
     is( $@, '', "calling dl_findfile()" );
+    # XXX could this be z/OS?
     # Some platforms are known to not have a "libc"
     # (not at least by that name) that the dl_findfile()
     # could find.

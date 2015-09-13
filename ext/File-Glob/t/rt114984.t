@@ -32,6 +32,7 @@ foreach (@mp) {
         close $f;
     }
 }
+# DOn't understand why is trying to do an execute; look up glob()
 my @b = glob(qq{$path/mp_[0123456789]*.dat
                 $path/md_[0123456789]*.dat});
 if ($md+$mp < @md+@mp) {

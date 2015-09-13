@@ -3760,10 +3760,10 @@ S_debug_start_match(pTHX_ const REGEXP *prog, const bool utf8_target,
             reginitcolors();    
     {
         RE_PV_QUOTED_DECL(s0, utf8_pat, PERL_DEBUG_PAD_ZERO(0), 
-            RX_PRECOMP_const(prog), RX_PRELEN(prog), 60);   
+            RX_PRECOMP_const(prog), RX_PRELEN(prog), 6000);   
         
         RE_PV_QUOTED_DECL(s1, utf8_target, PERL_DEBUG_PAD_ZERO(1),
-            start, end - start, 60); 
+            start, end - start, 6000); 
         
         PerlIO_printf(Perl_debug_log, 
             "%s%s REx%s %s against %s\n", 

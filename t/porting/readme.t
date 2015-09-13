@@ -3,6 +3,8 @@
 # Check whether all files mentioned in Porting/README.pod exist in Porting and
 # vice versa.
 
+# Depends on Unicode::Collate
+
 BEGIN {
     @INC = '..' if -f '../TestInit.pm';
 }

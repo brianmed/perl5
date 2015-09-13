@@ -1,4 +1,6 @@
 #!perl -w
+ #If you look at the tests, some are malformations, but some the only problem
+ #is an extra NUL, which sorts first
 
 use strict;
 use utf8;
@@ -326,15 +328,30 @@ sub test_U_hash {
     is (XS::APItest::Hash::delete ($hash, $victim, 0),
 	delete $placebo->{$victim},
 	"Deleting a known key with conversion enabled works");
+    use Data::Dumper;
+    $|=1;
+    print STDERR __FILE__, ": ", __LINE__, ': $hash=', Dumper $hash;
+    print STDERR __FILE__, ": ", __LINE__, ': $placebo=', Dumper $placebo;
     is (keys %$hash, keys %$placebo);
     @keys = sort keys %$hash;
+    print STDERR __FILE__, ": ", __LINE__, ': @keys=', Dumper \@keys;
+    my $sorted_mapping = join(' ', sort($mapping->(keys %$placebo)));
+    print STDERR __FILE__, ": ", __LINE__, ': $sorted_mapping=', Dumper $sorted_mapping;
     is ("@keys", join(' ', sort($mapping->(keys %$placebo))));
 
+    print STDERR __FILE__, ": ", __LINE__, ': $new=', Dumper $new;
     my ($k, $v) = splice @$new, 0, 2;
+    print STDERR __FILE__, ": ", __LINE__, ': $k=', Dumper $k;
+    print STDERR __FILE__, ": ", __LINE__, ': $v=', Dumper $v;
     $hash->{$k} = $v;
+    print STDERR __FILE__, ": ", __LINE__, ': $hash=', Dumper $hash;
     $placebo->{$k} = $v;
+    print STDERR __FILE__, ": ", __LINE__, ': $placebo=', Dumper $placebo;
     is (keys %$hash, keys %$placebo);
     @keys = sort keys %$hash;
+    print STDERR __FILE__, ": ", __LINE__, ': @keys=', Dumper \@keys;
+    $sorted_mapping = join(' ', sort($mapping->(keys %$placebo)));
+    print STDERR __FILE__, ": ", __LINE__, ': $sorted_mapping=', Dumper $sorted_mapping;
     is ("@keys", join(' ', sort($mapping->(keys %$placebo))));
 
     ($k, $v) = splice @$new, 0, 2;

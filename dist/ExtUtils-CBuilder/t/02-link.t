@@ -19,6 +19,7 @@ my ($source_file, $object_file, $exe_file);
 my $b = ExtUtils::CBuilder->new(quiet => $quiet);
 
 # test plan
+# Skipped on win32, probably on EBCDIC too.
 if ($^O eq 'MSWin32') {
   plan skip_all => "link_executable() is not implemented yet on Win32";
 }
